@@ -1300,6 +1300,9 @@ static void _test_options(gnrc_netif_t *netif)
             /* make no assumptions about test devices */
             break;
 #endif
+        case NETDEV_TYPE_VLC:
+            // TODO: make assertions
+            break;
         case NETDEV_TYPE_BLE:
         case NETDEV_TYPE_ETHERNET:
         case NETDEV_TYPE_ESP_NOW:
