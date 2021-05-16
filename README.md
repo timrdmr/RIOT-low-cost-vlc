@@ -1,139 +1,54 @@
-[![Nightly CI status master][master-ci-badge]][master-ci-link]
-[![GitHub release][release-badge]][release-link]
-[![License][license-badge]][license-link]
-[![API docs][api-badge]][api-link]
-[![Wiki][wiki-badge]][wiki-link]
-[![Merge chance][merge-chance-badge]][merge-chance-link]
-[![Stack Overflow questions][stackoverflow-badge]][stackoverflow-link]
-[![Twitter][twitter-badge]][twitter-link]
-[![IRC][irc-badge]][irc-link]
-[![Matrix][matrix-badge]][matrix-link]
+# Low-cost IP over Visible Light Communication System for the IoT 
 
-                          ZZZZZZ
-                        ZZZZZZZZZZZZ
-                      ZZZZZZZZZZZZZZZZ
-                     ZZZZZZZ     ZZZZZZ
-                    ZZZZZZ        ZZZZZ
-                    ZZZZZ          ZZZZ
-                    ZZZZ           ZZZZZ
-                    ZZZZ           ZZZZ
-                    ZZZZ          ZZZZZ
-                    ZZZZ        ZZZZZZ
-                    ZZZZ     ZZZZZZZZ       777        7777       7777777777
-              ZZ    ZZZZ   ZZZZZZZZ         777      77777777    77777777777
-          ZZZZZZZ   ZZZZ  ZZZZZZZ           777     7777  7777       777
-        ZZZZZZZZZ   ZZZZ    Z               777     777    777       777
-       ZZZZZZ       ZZZZ                    777     777    777       777
-      ZZZZZ         ZZZZ                    777     777    777       777
-     ZZZZZ          ZZZZZ    ZZZZ           777     777    777       777
-     ZZZZ           ZZZZZ    ZZZZZ          777     777    777       777
-     ZZZZ           ZZZZZ     ZZZZZ         777     777    777       777
-     ZZZZ           ZZZZ       ZZZZZ        777     777    777       777
-     ZZZZZ         ZZZZZ        ZZZZZ       777     777    777       777
-      ZZZZZZ     ZZZZZZ          ZZZZZ      777     7777777777       777
-       ZZZZZZZZZZZZZZZ            ZZZZ      777      77777777        777
-         ZZZZZZZZZZZ               Z
-            ZZZZZ
+This project was developed in the scope of a bachelor's thesis.
+It provides a physical and link layer implemenation for a low-cost Visible LIght Communication (VLC) system uing the RIOT OS.
+RIOT provides the upper network stack with e.g. IPv6 and UDP.
+Here you can find the code as well as documentation on how to use this VLC implementation together with RIOT.
+More details e.g. about the requiered hardware, limitatons and examples will follow soon.
 
-The friendly Operating System for IoT!
+## Hardware
+Each VLC node consists of an Atmel SAM R21 Xplained Pro board with an ATSAMR21G18A microcontroller and a transceiver board.
+The board is equipped with extension headers where external hardware, in this case the VLC sender and receiver, can be connected. The sender and the receiver components are build up on a prototyping board.
+![Prototype](vlc_docu/vlc_node_transparent.jpg "VLC Node")
 
-RIOT is a real-time multi-threading operating system that supports a range of
-devices that are typically found in the Internet of Things (IoT):
-8-bit, 16-bit and 32-bit microcontrollers.
+### Sender
+![Sender Circuit](vlc_docu/sender_circuit.jpg "VLC Sender Circuit" )
+The microcontroller is not able to modulate the LED directly because it cannot provide the sufficient current at the GPIO pins.
+The LED used in the prototype emits blue light atLM393N a beam angle of 120 degrees.
+To switch the LED on and off a MOSFET (L2203N) is used.
+It behaves like a switch for the LED controlled by the microcontroller.
+Finally, a resistor must be added to the LED (TRU COMPONENTS 1577392) to limit the current through the LED.
 
-RIOT is based on the following design principles: energy-efficiency, real-time
-capabilities, small memory footprint, modularity, and uniform API access,
-independent of the underlying hardware (this API offers partial POSIX
-compliance).
+### Receiver
+![Receiver Circuit](vlc_docu/receiver_circuit.jpg "VLC Receiver Circuit")
+The receiver circuit is more complex compared to the sender circuit.
+It needs to convert the incoming light into an electrical signal.
+The receiver build in this work is based on the VLC receiver of Goswami et.al. [1].
+Because not all parts are available in the exact same version and the Arduino provides 5V instead of 3.3V supplied by the Atmel SAM R21 Xplained Pro board, some adaptions need to be made.
 
-RIOT is developed by an international open source community which is
-independent of specific vendors (e.g. similarly to the Linux community).
-RIOT is licensed with LGPLv2.1, a copyleft license which fosters
-indirect business models around the free open-source software platform
-provided by RIOT, e.g. it is possible to link closed-source code with the
-LGPL code.
+First, the photodiode converts the incoming light into electrical current.
+The photodiode SFH 203 P has a very short switching time of 5 ns. The electrical current at the photodiode is converted into voltage using a resistor. Therefore, Ohm’s Law U = R ∗ I also applies. Because of this, the voltage at the photodiode is proportional to the used resistor. The value of the resistor R1 is chosen 10 times higher than the resistor used in the receiver circuit of Goswami et.al. [1] because of a better sensibility together with the other receiver components used in this prototype.
 
-## FEATURES
+Because the voltage at the resistor is in an order of a hundred millivolts, it needs to be amplified. Therefore an amplifier is used in the circuit.
+The amplifier needs two resistors to adjust the amplification factor. The amplification factor G is calculated by the following formula [2]: G = 1 + (R3 / R2).
+Goswami et.al. [1] were using an amplification factor of 2.745. To increase the sensitivity for higher communication distances, an amplification factor of 22.277 is used.
+Higher amplification levels also increase the noise.
+So, the level cannot be increased limitlessly.
 
-RIOT is based on a microkernel architecture, and provides features including,
-but not limited to:
+The amplified signal is an analog signal and varies depending on the brightness of the incoming light. But the microcontroller needs a digital input. This is done by a comparator.
+The comparator compares the incoming amplified signal with a reference voltage. If the input voltage is less than the reference voltage the comparator outputs 0 V. Else, if the input voltage is greater than or equal the reference voltage, the comparator outputs 3.3 V.
+The reference voltage is provided by a voltage divider. The reference voltage is adjusted to the brightest light condition. This way, the sunlight or illumination do not trigger the receiver interrupt at the microcontroller. On the other hand, this has the disadvantage that signals at higher distances at lower lighting condition will not be detected anymore because the threshold is too high.
 
-* a preemptive, tickless scheduler with priorities
-* flexible memory management
-* high resolution, long-term timers
-* support 100+ boards based on AVR, MSP430, ESP8266, ESP32, MIPS, RISC-V,
-  ARM7 and ARM Cortex-M
-* the native port allows to run RIOT as-is on Linux, BSD, and MacOS. Multiple
-  instances of RIOT running on a single machine can also be interconnected via
-  a simple virtual Ethernet bridge
-* IPv6
-* 6LoWPAN (RFC4944, RFC6282, and RFC6775)
-* UDP
-* RPL (storing mode, P2P mode)
-* CoAP
-* CCN-Lite
-* Sigfox
-* LoRaWAN
+As an alternative to the voltage divider a variable resistor can be used at varying lighting conditions to control the reference voltage manually. In the paper of Goswami et.al. [1] also an automatic gain controller is proposed to adjust the reference voltage automatically depending on the light conditions. To keep the complexity and cost low, a simple voltage divider, adjusted to the brightest light conditions, is used in the prototype of this work. At the brightest lighting conditions and without the light from the sender approximately 0.175 V applies at the input of the operator. So, a reference voltage of 0.2 V is used so that the receiver only triggers if it receives light from the sender. To adjust the reference voltage of 0.2V at the voltage divider, the resistors can be calculated using the following formula [3]:
+R5 = ((U_source / U_div) * R4) - R4 where U_source is the voltage provided by the development board, U_div the voltage taken from the voltage divider, R4 the first resistor and R5 the second one. The energy consumption will be higher if the resistors have a small value. Hence, R4 of the formula is chosen as 100 kΩ.
+A second resistor R5 of 1.55 MΩ is necessary.
+Because 1.55 MΩ is not a standard resistor value, two resistors of 1 MΩ and 470 kΩ are arranged in a row to add up to 1.47 MΩ which is close enough to 1.55 MΩ.
+Finally, a pull-up resistor R6 is used at the output to get a clear output signal.
 
 
-## GETTING STARTED
-* You want to start the RIOT? Just follow our
-[quickstart guide](https://doc.riot-os.org/index.html#the-quickest-start) or
-try this
-[tutorial](https://github.com/RIOT-OS/Tutorials/blob/master/README.md).
-For specific toolchain installation, follow instructions in the
-[getting started](https://doc.riot-os.org/getting-started.html) page.
-* The RIOT API itself can be built from the code using doxygen. The latest
-  version of the documentation is uploaded daily to
-  [doc.riot-os.org](https://doc.riot-os.org).
+## References
+[1] P. Goswami and M. Shukla. Design of a li-fi transceiver. Wireless Engineering and Technology, 8(4):71–86, 2017.
 
-## FORUM
-Do you have a question, want to discuss a new feature, or just want to present
-your latest project using RIOT? Come over to our [forum] and post to your hearts
-content.
+[2] Patrick Schnabel. Nichtinvertierender Verstärker. Elektronik Kompendium. https://www.elektronik-kompendium.de/sites/slt/0210151.htm, Accessed: 2021/03/06.
 
-[forum]: https://forum.riot-os.org
-
-## CONTRIBUTE
-
-To contribute something to RIOT, please refer to our
-[contributing document](CONTRIBUTING.md).
-
-## MAILING LISTS
-* RIOT commits: [commits@riot-os.org](https://lists.riot-os.org/mailman/listinfo/commits)
-* Github notifications: [notifications@riot-os.org](https://lists.riot-os.org/mailman/listinfo/notifications)
-
-## LICENSE
-* Most of the code developed by the RIOT community is licensed under the GNU
-  Lesser General Public License (LGPL) version 2.1 as published by the Free
-  Software Foundation.
-* Some external sources, especially files developed by SICS are published under
-  a separate license.
-
-All code files contain licensing information.
-
-For more information, see the RIOT website:
-
-https://www.riot-os.org
-
-
-[api-badge]: https://img.shields.io/badge/docs-API-informational.svg
-[api-link]: https://riot-os.org/api/
-[irc-badge]: https://img.shields.io/badge/chat-IRC-brightgreen.svg
-[irc-link]: https://webchat.freenode.net?channels=%23riot-os
-[license-badge]: https://img.shields.io/github/license/RIOT-OS/RIOT
-[license-link]: https://github.com/RIOT-OS/RIOT/blob/master/LICENSE
-[master-ci-badge]: https://ci.riot-os.org/RIOT-OS/RIOT/master/latest/badge.svg
-[master-ci-link]: https://ci.riot-os.org/nightlies.html#master
-[matrix-badge]: https://img.shields.io/badge/chat-Matrix-brightgreen.svg
-[matrix-link]: https://matrix.to/#/#riot-os:matrix.org
-[merge-chance-badge]: https://img.shields.io/endpoint?url=https%3A%2F%2Fmerge-chance.info%2Fbadge%3Frepo%3DRIOT-OS/RIOT&color=informational
-[merge-chance-link]: https://merge-chance.info/target?repo=RIOT-OS/RIOT
-[release-badge]: https://img.shields.io/github/release/RIOT-OS/RIOT.svg
-[release-link]: https://github.com/RIOT-OS/RIOT/releases/latest
-[stackoverflow-badge]: https://img.shields.io/badge/stackoverflow-%5Briot--os%5D-yellow
-[stackoverflow-link]: https://stackoverflow.com/questions/tagged/riot-os
-[twitter-badge]: https://img.shields.io/badge/social-Twitter-informational.svg
-[twitter-link]: https://twitter.com/RIOT_OS
-[wiki-badge]: https://img.shields.io/badge/docs-Wiki-informational.svg
-[wiki-link]: https://github.com/RIOT-OS/RIOT/wiki
+[3] Patrick Schnabel. Spannungsteiler / Spannungsteilerschaltung. Elektronik Kom- pendium. https://www.elektronik-kompendium.de/sites/slt/0201111.htm, Accessed: 2021/03/06.
